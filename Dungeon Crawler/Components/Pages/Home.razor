@@ -1,7 +1,262 @@
 ﻿@page "/"
+@using BlazorDungeon.Models
+@using BlazorDungeon.Services
+@inject IGameService GameService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Blazor Dungeon Crawler</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h3>🏰 Blazor Dungeon Crawler</h3>
+                </div>
+                <div class="card-body">
+                    @if (GameService.CurrentState == GameState.Menu)
+                    {
+                        <div class="text-center">
+                            <h2>Welcome, Adventurer!</h2>
+                            <p class="lead">Enter the depths of the dungeon and face its monsters!</p>
+                            <button class="btn btn-primary btn-lg" @onclick="StartGame">Start New Game</button>
+                        </div>
+                    }
+                    else if (GameService.CurrentState == GameState.Exploring)
+                    {
+                        <div class="text-center">
+                            <h4>🗺️ Exploring Floor @GameService.DungeonLevel</h4>
+                            <p>You stand in a dark corridor. What will you do?</p>
+                            <div class="btn-group">
+                                <button class="btn btn-success" @onclick="Explore">Continue Exploring</button>
+                                <button class="btn btn-info" @onclick="() => ChangeState(GameState.Inventory)">Inventory</button>
+                                <button class="btn btn-warning" @onclick="() => ChangeState(GameState.Shop)">Rest & Shop</button>
+                            </div>
+                        </div>
+                    }
+                    else if (GameService.CurrentState == GameState.Combat && GameService.CurrentMonster != null)
+                    {
+                        <div class="text-center">
+                            <h4>⚔️ Combat!</h4>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card border-primary">
+                                        <div class="card-header">
+                                            <h5>👤 @GameService.Player.Name</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="progress mb-2">
+                                                <div class="progress-bar bg-success" style="width: @((double)GameService.Player.Health / GameService.Player.MaxHealth * 100)%"></div>
+                                            </div>
+                                            <small>HP: @GameService.Player.Health / @GameService.Player.MaxHealth</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card border-danger">
+                                        <div class="card-header">
+                                            <h5>@GameService.CurrentMonster.Emoji @GameService.CurrentMonster.Name</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="progress mb-2">
+                                                <div class="progress-bar bg-danger" style="width: @((double)GameService.CurrentMonster.Health / GameService.CurrentMonster.MaxHealth * 100)%"></div>
+                                            </div>
+                                            <small>HP: @GameService.CurrentMonster.Health / @GameService.CurrentMonster.MaxHealth</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="btn-group">
+                                    <button class="btn btn-danger" @onclick="Attack">⚔️ Attack</button>
+                                    <button class="btn btn-info" @onclick="() => ChangeState(GameState.Inventory)">🎒 Use Item</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else if (GameService.CurrentState == GameState.Inventory)
+                    {
+                        <div>
+                            <h4>🎒 Inventory</h4>
+                            <button class="btn btn-secondary mb-3" @onclick="() => ChangeState(GameState.Exploring)">← Back</button>
 
-Welcome to your new app.
+                            @if (GameService.Player.Inventory.Any())
+                            {
+                                <div class="row">
+                                    @foreach (var item in GameService.Player.Inventory)
+                                    {
+                                        <div class="col-md-6 mb-2">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <h6>@item.Emoji @item.Name</h6>
+                                                    <small class="text-muted">@item.Description</small>
+                                                    <div class="mt-2">
+                                                        @if (item is Potion)
+                                                        {
+                                                            <button class="btn btn-sm btn-success me-2" @onclick="() => UseItem(item)">Use</button>
+                                                        }
+                                                        else if (GameService.Player.CanEquip(item))
+                                                        {
+                                                            <button class="btn btn-sm btn-primary me-2" @onclick="() => EquipItem(item)">Equip</button>
+                                                        }
+                                                        <button class="btn btn-sm btn-warning" @onclick="() => SellItem(item)">Sell (@(item.Value / 2)g)</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted">Your inventory is empty.</p>
+                            }
+                        </div>
+                    }
+                    else if (GameService.CurrentState == GameState.Shop)
+                    {
+                        <div>
+                            <h4>🏪 Shop & Rest</h4>
+                            <button class="btn btn-secondary mb-3" @onclick="() => ChangeState(GameState.Exploring)">← Back</button>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5>💤 Rest</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <p>Restore your health to full</p>
+                                            <button class="btn btn-success" @onclick="RestoreHealth" disabled="@(GameService.Player.Health == GameService.Player.MaxHealth)">
+                                                Rest (Free)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h5>🧪 Buy Potions</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <button class="btn btn-primary" @onclick="BuyPotion" disabled="@(GameService.Player.Gold < 20)">
+                                                Health Potion (20g)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else if (GameService.CurrentState == GameState.GameOver)
+                    {
+                        <div class="text-center">
+                            <h2 class="text-danger">💀 Game Over</h2>
+                            <p>You have fallen in the dungeon...</p>
+                            <p>Final Level: @GameService.Player.Level</p>
+                            <p>Gold Earned: @GameService.Player.Gold</p>
+                            <button class="btn btn-primary" @onclick="StartGame">Try Again</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5>👤 Character Stats</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> @GameService.Player.Name</p>
+                    <p><strong>Level:</strong> @GameService.Player.Level</p>
+                    <p><strong>Health:</strong> @GameService.Player.Health / @GameService.Player.MaxHealth</p>
+                    <p><strong>Attack:</strong> @GameService.Player.TotalAttack</p>
+                    <p><strong>Defense:</strong> @GameService.Player.TotalDefense</p>
+                    <p><strong>Gold:</strong> 💰 @GameService.Player.Gold</p>
+                    <p><strong>Experience:</strong> @GameService.Player.Experience / @GameService.Player.ExperienceToNext</p>
+
+                    @if (GameService.Player.EquippedWeapon != null)
+                    {
+                        <p><strong>Weapon:</strong> @GameService.Player.EquippedWeapon.Name</p>
+                    }
+                    @if (GameService.Player.EquippedArmor != null)
+                    {
+                        <p><strong>Armor:</strong> @GameService.Player.EquippedArmor.Name</p>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5>📜 Game Log</h5>
+                </div>
+                <div class="card-body" style="height: 300px; overflow-y: auto;">
+                    @foreach (var message in GameService.GameLog)
+                    {
+                        <div class="small mb-1">@message</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private void StartGame()
+    {
+        GameService.StartNewGame();
+        StateHasChanged();
+    }
+
+    private void Explore()
+    {
+        GameService.ExploreNext();
+        StateHasChanged();
+    }
+
+    private void Attack()
+    {
+        GameService.AttackMonster();
+        StateHasChanged();
+    }
+
+    private void UseItem(Item item)
+    {
+        GameService.UseItem(item);
+        StateHasChanged();
+    }
+
+    private void EquipItem(Item item)
+    {
+        GameService.EquipItem(item);
+        StateHasChanged();
+    }
+
+    private void SellItem(Item item)
+    {
+        GameService.SellItem(item);
+        StateHasChanged();
+    }
+
+    private void ChangeState(GameState newState)
+    {
+        GameService.ChangeState(newState);
+        StateHasChanged();
+    }
+
+    private void RestoreHealth()
+    {
+        GameService.Player.Health = GameService.Player.MaxHealth;
+        StateHasChanged();
+    }
+
+    private void BuyPotion()
+    {
+        if (GameService.Player.Gold >= 20)
+        {
+            GameService.Player.Gold -= 20;
+            GameService.Player.AddItem(new Potion { Name = "Health Potion", Description = "Restores 30 HP", HealAmount = 30, Value = 20 });
+        }
+        StateHasChanged();
+    }
+}
