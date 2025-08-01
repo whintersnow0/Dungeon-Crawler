@@ -1,10 +1,9 @@
 # Dungeon Crawler
 A text-based RPG game built with Blazor Server.
 
-## 🎮 Live Demo
-**Play now**: [http://104.197.255.122:5000/](http://104.197.255.122:5000/)
+## Deployment
+The project is deployed on a VPS server and accessible at http://104.197.255.122:5000/
 
-The game is deployed on a VPS and ready to play!
 
 ## Tech Stack
 - ASP.NET Core 8.0
@@ -30,5 +29,3 @@ Dungeon Crawler/
 ## Architecture
 Uses Blazor Server with component-based architecture, service injection for game logic, and real-time UI updates via SignalR.
 
-## Deployment
-The project is deployed on a VPS server and accessible at http://104.197.255.122:5000/
