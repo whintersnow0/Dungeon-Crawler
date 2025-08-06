@@ -28,10 +28,8 @@ namespace BlazorDungeon.Services
 
         public Monster CreateMonster(int dungeonLevel)
         {
-            var maxMonsterTier = Math.Min((dungeonLevel + 2) / 3, monsterTemplates.Count);
-            var minMonsterTier = Math.Max(0, maxMonsterTier - 3);
-
-            var randomIndex = Random.Shared.Next(minMonsterTier, maxMonsterTier);
+            var maxIndex = Math.Min(dungeonLevel + 2, monsterTemplates.Count);
+            var randomIndex = Random.Shared.Next(maxIndex);
             var template = monsterTemplates[randomIndex];
 
             return new Monster
